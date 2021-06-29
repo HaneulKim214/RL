@@ -1,5 +1,10 @@
 """
 Multi-armed Bandit
+
+
+Development legend(should be deleted once done):
+  *** = todos,
+  ??? = fixes
 """
 
 # Author: Haneul Kim <haneulkim214@gmail.com>
@@ -7,7 +12,9 @@ Multi-armed Bandit
 
 import pandas as pd
 import numpy as np
+
 from frame import Frame
+
 
 
 class ComparativeMethodsMAB:
@@ -16,8 +23,7 @@ class ComparativeMethodsMAB:
 
     Each method requires name(str), actions(list of frame objects),
     """
-    def __init__(self, name, actions=None):
-        self.name = name
+    def __init__(self, actions=None):
         self.actions = actions
         self.n_actions = len(actions)
         self.q_values = np.zeros(self.n_actions)
@@ -25,16 +31,38 @@ class ComparativeMethodsMAB:
         self.total_reward = 0
         self.avg_reward = list()
 
-    # ??? can be used 2 methods only: for e-greedy and ucb, is it worth it?
-    def update(self, a_idx, reward):
+    def update(self, a_idx, reward, i):
         """
-        update q_values of selected action with given reward following formula:
-        Q_n+1 = Q_n + (1/n)(R_n+Q_n)
+        Update function
+        formula for ABn, eGreedy, and UCB:
+            Q_n+1 = Q_n + (1/n)(R_n+Q_n)
 
-        NOTE: this update allows only to three methods: ABn, eGreedy, and UCB
+        formula for ThompsonSampling:
+            A_k += R_t, B_k += 1 - R_t
+
+        Parameters
+        ----------
+        a_idx : int
+                index of selected action, it is used to get action from list of actions.
+
+        reward : int
+                 reward agent received at each episode
+
+        i : int
+            number of episode
         """
-        self.imps[a_idx] += 1
-        self.q_values[a_idx] += (1 / self.imps[a_idx]) * (reward - self.q_values[a_idx])
+        # if self.name not in ["ABn", "eGreedy", "UCB"]:
+        #     raise ValueError("ComparativeMethodsMAB update method "
+        #                      "supports only ABn, eGreedy, and UCB")
+
+        if self.name == "ThompsonSampling":
+            self.alphas[a_idx] += reward
+            self.betas[a_idx] += 1 - reward
+
+        elif self.name in ["ABn", "eGreedy", "UCB"]:
+            self.imps[a_idx] += 1
+            self.q_values[a_idx] += (1 / self.imps[a_idx]) * (reward - self.q_values[a_idx])
+
         self.total_reward += reward
         avg_reward_so_far = self.total_reward / (i + 1)
         self.avg_reward.append(avg_reward_so_far)
@@ -55,8 +83,9 @@ class ComparativeMethodsMAB:
 
 
 class ABn(ComparativeMethodsMAB):
-    def __init__(self, name, actions):
-        super().__init__(name, actions)
+    def __init__(self, actions):
+        super().__init__(actions)
+        self.name = "ABn"
 
     def run_test(self, n_test):
         """
@@ -71,6 +100,7 @@ class ABn(ComparativeMethodsMAB):
             self.update(a_idx, reward, i)
 
         self.best_a = self.actions[np.argmax(self.q_values)]
+        self.n_test = n_test
 
     def run_prod(self, n_prod):
         """
@@ -79,7 +109,7 @@ class ABn(ComparativeMethodsMAB):
         for i in range(n_prod):
             reward = self.best_a.display_frame()
             self.total_reward += reward
-            avg_reward_so_far = self.total_reward/(i+1)
+            avg_reward_so_far = self.total_reward/(self.n_test+i+1)
             self.avg_reward.append(avg_reward_so_far)
 
 
@@ -99,8 +129,9 @@ class eGreedy(ComparativeMethodsMAB):
          even though it might not be optimal.
 
     """
-    def __init__(self, name, actions, eps):
-        super().__init__(name, actions)
+    def __init__(self, actions, eps):
+        super().__init__(actions)
+        self.name = "eGreedy"
         self.eps = eps
 
     def run(self, n_prod):
@@ -120,7 +151,7 @@ class eGreedy(ComparativeMethodsMAB):
                 a_idx = np.argmax(self.q_values)
             reward = self.actions[a_idx].display_frame() # ??? this should be more general since rn it is
                                                          # specialized to frame object only.
-            self.update(a_idx, reward)
+            self.update(a_idx, reward, i)
 
 
 class UpperConfidenceBounds(ComparativeMethodsMAB):
@@ -138,8 +169,9 @@ class UpperConfidenceBounds(ComparativeMethodsMAB):
        hyperparameter for uncertainty measure
 
     """
-    def __init__(self, name, actions, c):
-        super().__init__(name, actions)
+    def __init__(self, actions, c):
+        super().__init__(actions)
+        self.name = "UCB"
         self.c = c
         self.act_indices = np.array(range(self.n_actions))
 
@@ -150,30 +182,41 @@ class UpperConfidenceBounds(ComparativeMethodsMAB):
             else:
                 uncertainty = np.sqrt(np.log(i+1) / self.imps)
                 a_idx = np.argmax(self.q_values + self.c * uncertainty)
-
-            # ??? all methods(abn, egreedy, ucd) below is redundant for all methods -> must refactor
-            # add diff run for thompson only, it will make code much more simpler!!!
             reward = self.actions[a_idx].display_frame()
-            self.update(a_idx, reward)
+            self.update(a_idx, reward, i)
 
 
-
-
-# ??? whether to write run function for each method classes
-# or just one(has some bottlenecks as well)?
-def run(mab_method, n_prod):
+class ThompsonSampling(ComparativeMethodsMAB):
     """
-    Run production ready multi-armed bandit comparison methods for n_prod times.
+    Methods that resolve exploration-exploitation trade-off even in non-stationary environment.
+    best action is selected based on its potential for reward which is calculated as
+    sum of action value estimate and measure of uncertainty of this estimate.
+
+    Q-update function is same as A/B/n test however one main differences
+     1. one additional hyperparameter c
 
     Parameters
     ----------
-    mab_method: object
-            Instantiated object of class inherited from ComparativeMethodsMAB.
-
-    n_prod: int
-            number of iteration to be ran.
+    c : float
+       hyperparameter for uncertainty measure
 
     """
+    def __init__(self, actions):
+        super().__init__(actions)
+        self.name = "ThompsonSampling"
+
+        # parameters in beta distribution, initialized to 1 however could use previous data to initialize.
+        self.alphas = np.ones(self.n_actions)
+        self.betas = np.ones(self.n_actions)
+
+    def run(self, n_prod):
+        for i in range(n_prod):
+            theta_samples = [np.random.beta(self.alphas[k], self.betas[k]) \
+                             for k in range(self.n_actions)]
+            a_idx = np.argmax(theta_samples)
+            reward = self.actions[a_idx].display_frame()
+            self.update(a_idx, reward, i)
+
 
 
 

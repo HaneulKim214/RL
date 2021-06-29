@@ -1,5 +1,9 @@
 """
 Frames
+
+Development legend(should be deleted once done):
+  *** = todos,
+  ??? = fixes
 """
 
 # Author: Haneul Kim <haneulkim214@gmail.com>
@@ -13,7 +17,10 @@ class Frame:
     Instantiate Frame object either combi or stationary with their CTR
     """
     def __init__(self, ctr, name):
-        self.ctr = ctr # ctr can we replaced with diff wilson_ctr
+        # ***dev Todos:
+        # - add various ctr calculation methods such as wilson_ctr
+        # - ctr is non-stationary, so must be updated which it does in mab however not here
+        self.ctr = ctr
         self.name = name
 
     def display_frame(self):
