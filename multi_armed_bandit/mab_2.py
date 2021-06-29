@@ -26,16 +26,18 @@ class ComparativeMethodsMAB:
         self.avg_reward = list()
 
     # ??? can be used 2 methods only: for e-greedy and ucb, is it worth it?
-    def run(self, n_prod):
+    def update(self, a_idx, reward):
         """
-        iterate n_prod times using method specified by the object
+        update q_values of selected action with given reward following formula:
+        Q_n+1 = Q_n + (1/n)(R_n+Q_n)
 
-        Parameters
-        ----------
-        n_prod : int
-                 number of iteration to be ran.
+        NOTE: this update allows only to three methods: ABn, eGreedy, and UCB
         """
-        pass
+        self.imps[a_idx] += 1
+        self.q_values[a_idx] += (1 / self.imps[a_idx]) * (reward - self.q_values[a_idx])
+        self.total_reward += reward
+        avg_reward_so_far = self.total_reward / (i + 1)
+        self.avg_reward.append(avg_reward_so_far)
 
     @staticmethod
     def test1():
@@ -66,11 +68,7 @@ class ABn(ComparativeMethodsMAB):
         for i in range(n_test):
             a_idx = np.random.randint(self.n_actions)
             reward = self.actions[a_idx].display_frame()
-            self.imps[a_idx] += 1
-            self.q_values[a_idx] += (1/self.imps[a_idx]) * (reward - self.q_values[a_idx])
-            self.total_reward += reward
-            avg_reward_so_far = self.total_reward/(i+1)
-            self.avg_reward.append(avg_reward_so_far)
+            self.update(a_idx, reward, i)
 
         self.best_a = self.actions[np.argmax(self.q_values)]
 
@@ -122,11 +120,7 @@ class eGreedy(ComparativeMethodsMAB):
                 a_idx = np.argmax(self.q_values)
             reward = self.actions[a_idx].display_frame() # ??? this should be more general since rn it is
                                                          # specialized to frame object only.
-            self.imps[a_idx] += 1
-            self.q_values[a_idx] += (1 / self.imps[a_idx]) * (reward - self.q_values[a_idx])
-            self.total_reward += reward
-            avg_reward_so_far = self.total_reward / (i + 1)
-            self.avg_reward.append(avg_reward_so_far)
+            self.update(a_idx, reward)
 
 
 class UpperConfidenceBounds(ComparativeMethodsMAB):
@@ -160,14 +154,7 @@ class UpperConfidenceBounds(ComparativeMethodsMAB):
             # ??? all methods(abn, egreedy, ucd) below is redundant for all methods -> must refactor
             # add diff run for thompson only, it will make code much more simpler!!!
             reward = self.actions[a_idx].display_frame()
-            self.imps[a_idx] += 1
-            self.q_values[a_idx] += (1 / self.imps[a_idx]) * (reward - self.q_values[a_idx])
-            self.total_reward += reward
-            avg_reward_so_far = self.total_reward / (i + 1)
-            self.avg_reward.append(avg_reward_so_far)
-
-
-
+            self.update(a_idx, reward)
 
 
 
