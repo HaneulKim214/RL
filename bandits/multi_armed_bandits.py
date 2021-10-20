@@ -31,6 +31,10 @@ class ComparativeMethodsMAB:
         self.a_idxes = []
         self.regret = []
 
+    def calc_avg_reward(self):
+        cum_tot_rewards = np.cumsum(self.rewards)
+        self.avg_reward = cum_tot_rewards / (np.arange(1, len(self.rewards) + 1))
+
     def update(self, a_idx, reward):
         """
         Update action value
@@ -161,8 +165,7 @@ class eGreedy(ComparativeMethodsMAB):
                 a_idx = np.random.randint(self.n_actions)
             else:
                 a_idx = np.argmax(self.q_values)
-            reward = self.actions[a_idx].display_ad() # ??? this should be more general since rn it is
-                                                         # specialized to frame object only.
+            reward = self.actions[a_idx].display_ad()
             self.update(a_idx, reward)
 
 
@@ -195,7 +198,7 @@ class UpperConfidenceBounds(ComparativeMethodsMAB):
                 uncertainty = np.sqrt(np.log(i+1) / self.imps)
                 a_idx = np.argmax(self.q_values + self.c * uncertainty)
             reward = self.actions[a_idx].display_ad()
-            self.update(a_idx, reward, i)
+            self.update(a_idx, reward)
 
 
 class ThompsonSampling(ComparativeMethodsMAB):
@@ -226,6 +229,27 @@ class ThompsonSampling(ComparativeMethodsMAB):
         self.alphas = np.array([act.alpha for act in actions])
         self.betas = np.array([act.beta for act in actions])
 
+    def run_test(self, n_prod, batch_size_i=np.inf):
+        """
+        Parameters
+        ---------
+        batch_size_i : int
+                     for batch_update within a day
+                     default = +infinity => never update within run_test duration
+        """
+        for i in range(1, n_prod+1):
+            q_vals = [np.random.beta(self.alphas[k], self.betas[k]) \
+                             for k in range(self.n_actions)]
+            a_idx = np.argmax(q_vals)
+            # *** In production display_ad() should be user's interaction!
+            reward = self.actions[a_idx].display_ad()
+            self.imps[a_idx] += 1
+            self.rewards.append(reward)
+            self.a_idxes.append(a_idx)
+
+            if i % batch_size_i == 0:
+                self.update_batch()
+
     def reset_params(self):
         """
         Reset parameters alpha, beta
@@ -249,27 +273,6 @@ class ThompsonSampling(ComparativeMethodsMAB):
         a_idx = np.argmax(q_vals)
         frame = self.actions[a_idx]
         return a_idx, frame
-
-    def run_test(self, n_prod, batch_size_i=np.inf):
-        """
-        Parameters
-        ---------
-        batch_size_i : int
-                     for batch_update within a day
-                     default = +infinity => never update within run_test duration
-        """
-        for i in range(1, n_prod+1):
-            q_vals = [np.random.beta(self.alphas[k], self.betas[k]) \
-                             for k in range(self.n_actions)]
-            a_idx = np.argmax(q_vals)
-            # *** In production display_ad() should be user's interaction!
-            reward = self.actions[a_idx].display_ad()
-            self.imps[a_idx] += 1
-            self.rewards.append(reward)
-            self.a_idxes.append(a_idx)
-
-            if i % batch_size_i == 0:
-                self.update_batch()
 
     def update_batch(self):
         """Update alpha, beta when using data collected until
