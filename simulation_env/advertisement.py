@@ -29,9 +29,15 @@ class Advertisement:
         self.name = name
         self.imps = 0
         self.rewards = 0
-
         self.alpha = alpha
         self.beta = beta
+        self.ctr_history = []
+        self.ctr_history.append(self.ctr)
+
+    def add_ad(self):
+        """
+        New advertisement added to simluation env
+        """
 
     def display_ad(self):
         """
@@ -52,6 +58,20 @@ class Advertisement:
         """
         self.alpha = 1
         self.beta = 1 if self.beta != np.inf else np.inf
+
+    def rand_update(self, lb, ub):
+        """
+        Updates CTR randomly.
+        To mimic non-stationary reward distribution of real-world
+
+        lb,up : float
+             lower and upper bound for update percentage
+             ex: if lb,ub= 0.05
+             ctr update range is [0.95, 1.05]
+        """
+        update_p = np.random.uniform(low=-lb, high=ub)
+        self.ctr = self.ctr * (1+update_p)
+        self.ctr_history.append(self.ctr)
 
     def __str__(self):
         return f'{self.name}'

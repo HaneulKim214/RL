@@ -14,7 +14,6 @@ import numpy as np
 from simulation_env.advertisement import Advertisement
 
 
-
 class ComparativeMethodsMAB:
     """
     Class containing variety of comparative methods for MAB problems
