@@ -225,8 +225,8 @@ class ThompsonSampling(ComparativeMethodsMAB):
 
         # *** parameters in beta distribution, initialized to 1 however could
         # use previous data to initialize.
-        self.alphas = np.array([act.alpha for act in actions])
-        self.betas = np.array([act.beta for act in actions])
+        self.alphas = np.ones(self.n_actions)
+        self.betas = np.ones(self.n_actions)
 
     def run_test(self, n_prod, batch_size_i=np.inf):
         """
@@ -242,6 +242,9 @@ class ThompsonSampling(ComparativeMethodsMAB):
             a_idx = np.argmax(q_vals)
             # *** In production display_ad() should be user's interaction!
             reward = self.actions[a_idx].display_ad()
+
+            self.alphas[a_idx] += reward
+            self.betas[a_idx] += 1-reward
             self.imps[a_idx] += 1
             self.rewards.append(reward)
             self.a_idxes.append(a_idx)
@@ -255,7 +258,7 @@ class ThompsonSampling(ComparativeMethodsMAB):
         """
         # reset alpha, beta values only since other need to be saved for analysis
         self.alphas = np.ones(self.n_actions)
-        self.betas = np.array([act.beta for act in self.actions])
+        self.betas = np.ones(self.n_actions)
         self.q_values = np.zeros(self.n_actions)
 
     def run(self):

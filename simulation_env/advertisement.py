@@ -17,7 +17,7 @@ class Advertisement:
     """
     Instantiate Advertisement object
     """
-    def __init__(self, ctr, name, alpha, beta):
+    def __init__(self, ctr, name):
         """
         Parameters
         ----------
@@ -29,8 +29,6 @@ class Advertisement:
         self.name = name
         self.imps = 0
         self.rewards = 0
-        self.alpha = alpha
-        self.beta = beta
         self.ctr_history = []
         self.ctr_history.append(self.ctr)
 
@@ -48,16 +46,7 @@ class Advertisement:
         reward = np.random.binomial(n=1, p=self.ctr)
         self.imps += 1
         self.rewards += reward
-        self.alpha += reward
-        self.beta += 1 - reward
         return reward
-
-    def reset(self):
-        """
-        reset number of impressions and rewards
-        """
-        self.alpha = 1
-        self.beta = 1 if self.beta != np.inf else np.inf
 
     def rand_update(self, lb, ub):
         """
@@ -72,6 +61,9 @@ class Advertisement:
         update_p = np.random.uniform(low=-lb, high=ub)
         self.ctr = self.ctr * (1+update_p)
         self.ctr_history.append(self.ctr)
+
+    def reset_imps(self):
+        self.imps = 0
 
     def __str__(self):
         return f'{self.name}'
